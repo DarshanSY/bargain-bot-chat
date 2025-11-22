@@ -7,25 +7,36 @@ import QuickReplyButtons from "./QuickReplyButtons";
 import PriceCard from "./PriceCard";
 import ChatInput from "./ChatInput";
 import { Message } from "@/types/chat";
+import { Product } from "@/types/product";
 
 interface ChatInterfaceProps {
   isOpen: boolean;
   onClose: () => void;
+  product: Product | null;
 }
 
-const ChatInterface = ({ isOpen, onClose }: ChatInterfaceProps) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      content: "Hi! 👋 I'm your AI bargain assistant. Let's get you the best deal on these headphones!",
-      sender: "bot",
-      timestamp: new Date(),
-    },
-  ]);
+const ChatInterface = ({ isOpen, onClose, product }: ChatInterfaceProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showPriceCard, setShowPriceCard] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Reset chat when product changes
+  useEffect(() => {
+    if (product) {
+      const discountedPrice = Math.round(product.original_price * (1 - product.max_discount / 100));
+      setMessages([
+        {
+          id: "1",
+          content: `Hi! 👋 I'm your AI bargain assistant. Let's get you the best deal on ${product.name}! The current price is ₹${discountedPrice.toLocaleString()}.`,
+          sender: "bot",
+          timestamp: new Date(),
+        },
+      ]);
+      setShowPriceCard(false);
+    }
+  }, [product]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,6 +47,8 @@ const ChatInterface = ({ isOpen, onClose }: ChatInterfaceProps) => {
   }, [messages, isTyping]);
 
   const simulateAIResponse = async (userMessage: string) => {
+    if (!product) return;
+
     setIsTyping(true);
     
     // Simulate API call delay
@@ -44,12 +57,17 @@ const ChatInterface = ({ isOpen, onClose }: ChatInterfaceProps) => {
     let response = "";
     const lowerMessage = userMessage.toLowerCase();
     
+    // Calculate prices based on product data
+    const currentPrice = Math.round(product.original_price * (1 - product.max_discount / 100));
+    const bestPrice = Math.round(product.original_price * (1 - (product.max_discount + 5) / 100));
+    const finalPrice = Math.round(product.original_price * (1 - (product.max_discount + 3) / 100));
+    
     if (lowerMessage.includes("best price") || lowerMessage.includes("lowest")) {
-      response = "I can offer you ₹4,299! That's an amazing ₹700 off the current price. Plus, I'll throw in free shipping! 🎁";
+      response = `I can offer you ₹${bestPrice.toLocaleString()}! That's an amazing ₹${(currentPrice - bestPrice).toLocaleString()} off the current price. Plus, I'll throw in free shipping! 🎁`;
     } else if (lowerMessage.includes("discount") || lowerMessage.includes("more off")) {
-      response = "Let me check what I can do... How about ₹4,199? That's a total of 47% off the original price! 🎉";
+      response = `Let me check what I can do... How about ₹${finalPrice.toLocaleString()}? That's a total of ${product.max_discount + 3}% off the original price! 🎉`;
     } else if (lowerMessage.includes("combo") || lowerMessage.includes("bundle")) {
-      response = "Great idea! I can bundle these headphones with a premium carrying case for just ₹4,599. That's a ₹3,900 saving! 📦";
+      response = `Great idea! I can bundle ${product.name} with complementary accessories for an even better deal! 📦`;
     } else if (lowerMessage.includes("final") || lowerMessage.includes("deal")) {
       setShowPriceCard(true);
       response = "Perfect! Here's your personalized deal. This is the best price I can offer while maintaining quality! 🎯";
@@ -121,7 +139,7 @@ const ChatInterface = ({ isOpen, onClose }: ChatInterfaceProps) => {
           
           {isTyping && <TypingIndicator />}
           
-          {showPriceCard && <PriceCard />}
+          {showPriceCard && product && <PriceCard product={product} />}
           
           <div ref={messagesEndRef} />
         </div>
